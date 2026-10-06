@@ -12,8 +12,8 @@ Plan and design decisions: [`docs/2026-10-06-phase1-plan.md`](docs/2026-10-06-ph
 | 0 | Accounts & keys (Strava app, Supabase, Cloudflare) | to do (manual) |
 | 1 | Repo scaffold | done |
 | 2 | Database schema | done |
-| 3 | One-time local OAuth script | next |
-| 4 | Backfill (run list + detail view) | |
+| 3 | One-time local OAuth script + token refresh | done |
+| 4 | Backfill (run list + detail view) | next |
 | 5 | Incremental sync + 30-day re-pull | |
 | 6 | `runs_overview` CSV export | view done, script pending |
 | 7 | Tests, `/status`, deploy | |
@@ -37,6 +37,19 @@ test/                     Vitest unit tests
    *Authorization Callback Domain* to `localhost`. Copy the Client ID and Client Secret.
 3. **Cloudflare**: a free account is enough. `npx wrangler login`.
 4. Copy `.env.example` to `.env` and fill it in (git-ignored).
+
+## Step 3 — Connect Strava (once)
+
+```sh
+npm install
+npm run auth
+```
+
+Open the printed URL, approve with **all boxes ticked**, and the script stores the tokens in
+Supabase. It asks for `read`, `activity:read_all` (includes private runs) and
+`profile:read_all` (needed for heart-rate zones), and refuses to save if any is missing or if
+the redirect's `state` doesn't match. On first run it prints your athlete ID: put it in
+`wrangler.toml` (`STRAVA_ATHLETE_ID`) and in `.env` so later logins must be the same account.
 
 ## Security notes
 
