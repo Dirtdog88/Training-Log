@@ -1,0 +1,26 @@
+{
+  "name": "training-log",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pulls Strava run history into Supabase on a Cloudflare Workers cron.",
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "auth": "tsx scripts/strava-auth.ts",
+    "export:csv": "tsx scripts/export-runs-csv.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261006.1",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0",
+    "wrangler": "^4.0.0"
+  }
+}

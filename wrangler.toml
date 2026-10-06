@@ -1,0 +1,20 @@
+name = "training-log"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Every 15 minutes, aligned with Strava's 15-minute rate-limit windows.
+# Once the backfill is done, most runs exit early after one cheap check.
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+# Strava athlete ID that this deployment is allowed to sync. Set after running `npm run auth`.
+STRAVA_ATHLETE_ID = ""
+
+# Secrets (set with `wrangler secret put <NAME>`, never commit them):
+#   STRAVA_CLIENT_ID
+#   STRAVA_CLIENT_SECRET
+#   SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY
+#   STATUS_TOKEN            -- bearer token required by GET /status
