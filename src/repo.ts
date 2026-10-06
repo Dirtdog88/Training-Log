@@ -4,6 +4,8 @@ import type { ActivityRow, DetailRow } from "./mapping";
 export interface SyncState {
   backfill_before: string | null;
   backfill_complete: boolean;
+  incremental_after: string | null;
+  last_incremental_at: string | null;
   last_resync_at: string | null;
   zones_fetched_at: string | null;
 }
@@ -34,6 +36,12 @@ export interface SyncRepo {
   saveDetails(rows: DetailRow[]): Promise<void>;
   markDetailSynced(ids: number[], at: string): Promise<void>;
   markDeleted(ids: number[], at: string): Promise<void>;
+  /** Newest stored start_date, or null when nothing is stored yet. */
+  newestActivityStart(): Promise<string | null>;
+  /** IDs of non-deleted runs that started at or after `sinceIso`. */
+  activeRunIdsSince(sinceIso: string): Promise<number[]>;
+  /** Queue runs to have their detail view fetched again. */
+  resetDetails(ids: number[]): Promise<void>;
 }
 
 function check(error: { message: string } | null, what: string): void {
@@ -45,7 +53,7 @@ export function supabaseSyncRepo(db: SupabaseClient): SyncRepo {
     async getSyncState() {
       const { data, error } = await db
         .from("sync_state")
-        .select("backfill_before, backfill_complete, last_resync_at, zones_fetched_at")
+        .select("backfill_before, backfill_complete, incremental_after, last_incremental_at, last_resync_at, zones_fetched_at")
         .eq("id", 1)
         .single();
       check(error, "Loading sync_state");
@@ -102,6 +110,29 @@ export function supabaseSyncRepo(db: SupabaseClient): SyncRepo {
     async markDeleted(ids, at) {
       const { error } = await db.from("activities").update({ deleted_at: at }).in("id", ids);
       check(error, "Marking activities deleted");
+    },
+    async newestActivityStart() {
+      const { data, error } = await db
+        .from("activities")
+        .select("start_date")
+        .order("start_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      check(error, "Finding newest activity");
+      return (data as { start_date: string } | null)?.start_date ?? null;
+    },
+    async activeRunIdsSince(sinceIso) {
+      const { data, error } = await db
+        .from("activities")
+        .select("id")
+        .gte("start_date", sinceIso)
+        .is("deleted_at", null);
+      check(error, "Listing recent runs");
+      return (data as { id: number }[]).map((r) => r.id);
+    },
+    async resetDetails(ids) {
+      const { error } = await db.from("activities").update({ detail_synced_at: null }).in("id", ids);
+      check(error, "Re-queueing details");
     },
   };
 }

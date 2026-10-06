@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { StravaClient } from "../src/strava/client";
-import { runBackfill, type SyncOptions } from "../src/sync";
+import { runSync, type SyncOptions } from "../src/sync";
 import { FakeStrava, MemoryRepo, makeActivity, makeHistory } from "./fakes";
 
 const opts: SyncOptions = { athleteId: 9, maxListPages: 2, perPage: 200 };
@@ -8,7 +8,7 @@ const BUDGET = 15;
 
 async function invoke(fake: FakeStrava, repo: MemoryRepo, budget = BUDGET) {
   const client = new StravaClient("token", budget, fake.fetch);
-  const outcome = await runBackfill(client, repo, opts);
+  const outcome = await runSync(client, repo, opts);
   return { outcome, client };
 }
 
@@ -25,7 +25,7 @@ async function runToCompletion(fake: FakeStrava, repo: MemoryRepo) {
   return invocations;
 }
 
-describe("runBackfill", () => {
+describe("runSync: backfill", () => {
   it("backfills every run across many invocations, skipping rides, fetching each detail once", async () => {
     const history = makeHistory(450, 5); // 360 runs, 90 rides
     const fake = new FakeStrava(history);
@@ -117,7 +117,8 @@ describe("runBackfill", () => {
     await invoke(fake, repo);
     const syncedAt = repo.activities.get(1)!.detail_synced_at;
     expect(syncedAt).not.toBeNull();
-    await repo.upsertActivities([{ ...repo.activities.get(1)!, name: "renamed" }].map(({ detail_synced_at: _d, deleted_at: _x, ...r }) => r));
+    const { detail_synced_at: _d, ...summary } = repo.activities.get(1)!;
+    await repo.upsertActivities([{ ...summary, name: "renamed", deleted_at: null }]);
     expect(repo.activities.get(1)!.detail_synced_at).toBe(syncedAt);
   });
 

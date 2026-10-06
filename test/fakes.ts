@@ -64,12 +64,16 @@ export class FakeStrava {
     if (path === "/athlete/zones") return Response.json({ heart_rate: { zones: [] } }, { headers });
     if (path === "/athlete/activities") {
       const perPage = Number(url.searchParams.get("per_page"));
+      const page = Number(url.searchParams.get("page") ?? 1);
       const before = url.searchParams.get("before");
+      const after = url.searchParams.get("after");
       const list = this.activities
         .filter((a) => !this.deleted.has(a.id))
         .filter((a) => !before || Date.parse(a.start_date) / 1000 < Number(before))
-        .sort((a, b) => Date.parse(b.start_date) - Date.parse(a.start_date))
-        .slice(0, perPage);
+        .filter((a) => !after || Date.parse(a.start_date) / 1000 > Number(after))
+        // Strava returns oldest-first when `after` is given, newest-first otherwise.
+        .sort((a, b) => (after ? 1 : -1) * (Date.parse(a.start_date) - Date.parse(b.start_date)))
+        .slice((page - 1) * perPage, page * perPage);
       return Response.json(list, { headers });
     }
     const m = path.match(/^\/activities\/(\d+)$/);
@@ -90,12 +94,19 @@ export class FakeStrava {
   }
 }
 
-type StoredActivity = ActivityRow & { detail_synced_at: string | null; deleted_at: string | null };
+type StoredActivity = Omit<ActivityRow, "deleted_at"> & { detail_synced_at: string | null; deleted_at: string | null };
 
 /** In-memory SyncRepo that mimics the Supabase upsert semantics and counts calls. */
 export class MemoryRepo implements SyncRepo {
   calls = 0;
-  state: SyncState = { backfill_before: null, backfill_complete: false, last_resync_at: null, zones_fetched_at: null };
+  state: SyncState = {
+    backfill_before: null,
+    backfill_complete: false,
+    incremental_after: null,
+    last_incremental_at: null,
+    last_resync_at: null,
+    zones_fetched_at: null,
+  };
   activities = new Map<number, StoredActivity>();
   details = new Map<number, DetailRow>();
   runs: SyncRunResult[] = [];
@@ -126,7 +137,7 @@ export class MemoryRepo implements SyncRepo {
     for (const r of rows) {
       const existing = this.activities.get(r.id);
       // Upsert updates only the supplied columns, like PostgREST merge-duplicates.
-      this.activities.set(r.id, { detail_synced_at: null, deleted_at: null, ...existing, ...r });
+      this.activities.set(r.id, { detail_synced_at: null, ...existing, ...r });
     }
   }
   async activitiesNeedingDetail(limit: number) {
@@ -148,5 +159,21 @@ export class MemoryRepo implements SyncRepo {
   async markDeleted(ids: number[], at: string) {
     this.calls++;
     for (const id of ids) this.activities.get(id)!.deleted_at = at;
+  }
+  async newestActivityStart() {
+    this.calls++;
+    const starts = [...this.activities.values()].map((a) => Date.parse(a.start_date));
+    // Postgres-style formatting, to catch code that compares timestamps as strings.
+    return starts.length ? new Date(Math.max(...starts)).toISOString().replace("Z", "+00:00") : null;
+  }
+  async activeRunIdsSince(sinceIso: string) {
+    this.calls++;
+    return [...this.activities.values()]
+      .filter((a) => a.deleted_at === null && Date.parse(a.start_date) >= Date.parse(sinceIso))
+      .map((a) => a.id);
+  }
+  async resetDetails(ids: number[]) {
+    this.calls++;
+    for (const id of ids) this.activities.get(id)!.detail_synced_at = null;
   }
 }

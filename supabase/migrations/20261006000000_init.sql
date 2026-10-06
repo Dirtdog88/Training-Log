@@ -98,7 +98,9 @@ create table public.sync_state (
   id                     integer primary key default 1 check (id = 1),
   backfill_before        timestamptz,                      -- backfill cursor: fetch runs older than this (null = start from now)
   backfill_complete      boolean     not null default false,
-  last_resync_at         timestamptz,                      -- last 30-day re-pull
+  incremental_after      timestamptz,                      -- new-run cursor: newest start_date already listed
+  last_incremental_at    timestamptz,                      -- last check for new runs (hourly)
+  last_resync_at         timestamptz,                      -- last 30-day re-pull (daily)
   zones_fetched_at       timestamptz,
   updated_at             timestamptz not null default now()
 );

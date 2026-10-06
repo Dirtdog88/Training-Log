@@ -3,7 +3,7 @@ import type { Env } from "./env";
 import { supabaseSyncRepo, type SyncRepo } from "./repo";
 import { StravaClient } from "./strava/client";
 import { getAccessToken, type TokenStore } from "./strava/tokens";
-import { runBackfill } from "./sync";
+import { runSync } from "./sync";
 
 // Defaults sized for the Workers free plan (50 subrequests and limited CPU per invocation).
 // Strava's ~1,000 reads/day cap is the real throughput limit, so small runs lose nothing:
@@ -37,7 +37,7 @@ export async function syncOnce(
       deps.fetchImpl,
     );
     strava = new StravaClient(token, intVar(env.SYNC_STRAVA_BUDGET, DEFAULT_STRAVA_BUDGET), deps.fetchImpl);
-    const outcome = await runBackfill(strava, deps.repo, {
+    const outcome = await runSync(strava, deps.repo, {
       athleteId,
       maxListPages: intVar(env.SYNC_MAX_LIST_PAGES, DEFAULT_MAX_LIST_PAGES),
       perPage: PER_PAGE,

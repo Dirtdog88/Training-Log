@@ -27,10 +27,11 @@ export interface ActivityRow {
   trainer: boolean;
   summary: SummaryActivity;
   summary_synced_at: string;
+  deleted_at: null;
 }
 
-// Deliberately omits detail_synced_at, streams_wanted and deleted_at so that re-upserting a
-// summary never clobbers detail/stream progress.
+// Deliberately omits detail_synced_at and streams_wanted so that re-upserting a summary never
+// clobbers detail/stream progress. deleted_at is cleared: if Strava lists the run, it exists.
 export function toActivityRow(a: SummaryActivity, syncedAt: Date): ActivityRow {
   return {
     id: a.id,
@@ -54,6 +55,7 @@ export function toActivityRow(a: SummaryActivity, syncedAt: Date): ActivityRow {
     trainer: a.trainer ?? false,
     summary: a,
     summary_synced_at: syncedAt.toISOString(),
+    deleted_at: null,
   };
 }
 
