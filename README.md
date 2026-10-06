@@ -13,8 +13,8 @@ Plan and design decisions: [`docs/2026-10-06-phase1-plan.md`](docs/2026-10-06-ph
 | 1 | Repo scaffold | done |
 | 2 | Database schema | done |
 | 3 | One-time local OAuth script + token refresh | done |
-| 4 | Backfill (run list + detail view) | next |
-| 5 | Incremental sync + 30-day re-pull | |
+| 4 | Backfill (run list + detail view) | done |
+| 5 | Incremental sync + 30-day re-pull | next |
 | 6 | `runs_overview` CSV export | view done, script pending |
 | 7 | Tests, `/status`, deploy | |
 
@@ -50,6 +50,22 @@ Supabase. It asks for `read`, `activity:read_all` (includes private runs) and
 `profile:read_all` (needed for heart-rate zones), and refuses to save if any is missing or if
 the redirect's `state` doesn't match. On first run it prints your athlete ID: put it in
 `wrangler.toml` (`STRAVA_ATHLETE_ID`) and in `.env` so later logins must be the same account.
+
+## How the backfill works
+
+Every 15 minutes the Worker:
+
+1. Refreshes HR zones if they are older than 30 days (1 request).
+2. Pages backwards through `/athlete/activities` (200 per page, max 2 pages per run), keeping only
+   `Run`, `TrailRun` and `VirtualRun`. Progress is a timestamp cursor (`sync_state.backfill_before`).
+3. Spends the rest of its budget (15 Strava requests per run by default) fetching the detail view
+   of runs that lack it, newest first. Segment efforts and the full map are dropped to save space.
+
+It stops early on a 429 or when Strava's usage headers show it is within 5 requests of the
+15-minute or daily limit, saves what it fetched, and resumes on the next run. Each run is logged
+in `sync_runs`. Expect roughly 1,000 runs per day, so a few years of history finishes in 1–3 days.
+
+Tuning (`wrangler.toml` vars): `SYNC_STRAVA_BUDGET`, `SYNC_MAX_LIST_PAGES`.
 
 ## Security notes
 

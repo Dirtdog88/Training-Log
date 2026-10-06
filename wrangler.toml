@@ -11,6 +11,9 @@ crons = ["*/15 * * * *"]
 [vars]
 # Strava athlete ID that this deployment is allowed to sync. Set after running `npm run auth`.
 STRAVA_ATHLETE_ID = ""
+# Optional tuning (defaults: 15 Strava requests, 2 list pages per run). Raise on the paid plan.
+# SYNC_STRAVA_BUDGET = "15"
+# SYNC_MAX_LIST_PAGES = "2"
 
 # Secrets (set with `wrangler secret put <NAME>`, never commit them):
 #   STRAVA_CLIENT_ID

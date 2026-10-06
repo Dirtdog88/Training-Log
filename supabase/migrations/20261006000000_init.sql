@@ -96,7 +96,7 @@ on conflict (id) do nothing;
 -- ---------------------------------------------------------------------------
 create table public.sync_state (
   id                     integer primary key default 1 check (id = 1),
-  backfill_next_page     integer     not null default 1,   -- next list page to request
+  backfill_before        timestamptz,                      -- backfill cursor: fetch runs older than this (null = start from now)
   backfill_complete      boolean     not null default false,
   last_resync_at         timestamptz,                      -- last 30-day re-pull
   zones_fetched_at       timestamptz,
