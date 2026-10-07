@@ -1,6 +1,7 @@
 import { createDb, supabaseTokenStore } from "./db";
 import type { Env } from "./env";
 import { supabaseSyncRepo, type SyncRepo } from "./repo";
+import { handleStatus, supabaseStatusSource } from "./status";
 import { StravaClient } from "./strava/client";
 import { getAccessToken, type TokenStore } from "./strava/tokens";
 import { runSync } from "./sync";
@@ -72,8 +73,9 @@ export default {
     await syncOnce(env, { repo: supabaseSyncRepo(db), tokens: supabaseTokenStore(db) });
   },
 
-  // /status arrives in Step 7.
-  async fetch(_request: Request, _env: Env): Promise<Response> {
-    return new Response("Not found", { status: 404 });
+  async fetch(request: Request, env: Env): Promise<Response> {
+    if (new URL(request.url).pathname !== "/status") return new Response("Not found", { status: 404 });
+    const db = createDb(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    return handleStatus(request, env.STATUS_TOKEN, supabaseStatusSource(db));
   },
 } satisfies ExportedHandler<Env>;

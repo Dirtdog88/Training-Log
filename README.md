@@ -16,7 +16,7 @@ Plan and design decisions: [`docs/2026-10-06-phase1-plan.md`](docs/2026-10-06-ph
 | 4 | Backfill (run list + detail view) | done |
 | 5 | Incremental sync + 30-day re-pull | done |
 | 6 | Review views + CSV export | done |
-| 7 | `/status`, deploy, watch backfill | next |
+| 7 | `/status` + deploy checklist | done — deploy pending Step 0 |
 
 ## Layout
 
@@ -72,6 +72,15 @@ It stops early on a 429 or when Strava's usage headers show it is within 5 reque
 in `sync_runs`. Expect roughly 1,000 runs per day, so a few years of history finishes in 1–3 days.
 
 Tuning (`wrangler.toml` vars): `SYNC_STRAVA_BUDGET`, `SYNC_MAX_LIST_PAGES`.
+
+## Deploy and monitor
+
+Follow [`docs/2026-10-07-deploy-checklist.md`](docs/2026-10-07-deploy-checklist.md).
+
+`GET /status` (header `Authorization: Bearer <STATUS_TOKEN>`) returns JSON: `healthy` (a sync
+finished OK or paused for rate limits in the last 2 hours), backfill progress, run counts
+(stored / awaiting detail / deleted), the last run, and recent errors. Every other path returns
+404, and `/status` returns 503 if no token is configured. Live logs: `npx wrangler tail`.
 
 ## Reviewing the data (Phase 2 prep)
 
