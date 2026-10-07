@@ -15,8 +15,8 @@ Plan and design decisions: [`docs/2026-10-06-phase1-plan.md`](docs/2026-10-06-ph
 | 3 | One-time local OAuth script + token refresh | done |
 | 4 | Backfill (run list + detail view) | done |
 | 5 | Incremental sync + 30-day re-pull | done |
-| 6 | `runs_overview` CSV export | next (view done) |
-| 7 | Tests, `/status`, deploy | |
+| 6 | Review views + CSV export | done |
+| 7 | `/status`, deploy, watch backfill | next |
 
 ## Layout
 
@@ -72,6 +72,39 @@ It stops early on a 429 or when Strava's usage headers show it is within 5 reque
 in `sync_runs`. Expect roughly 1,000 runs per day, so a few years of history finishes in 1–3 days.
 
 Tuning (`wrangler.toml` vars): `SYNC_STRAVA_BUDGET`, `SYNC_MAX_LIST_PAGES`.
+
+## Reviewing the data (Phase 2 prep)
+
+Two views give a readable picture of the history (units converted, deleted runs hidden):
+
+- `runs_overview` — one row per run: date, weekday, name, Strava workout type, km, minutes,
+  pace/km, avg/max HR, elevation, treadmill flag, lap count, description.
+- `run_laps` — one row per watch lap with distance, time, pace and HR. Interval sessions
+  (e.g. 6x800) show up here as repeating fast/slow laps.
+
+### CSV export
+
+```sh
+npm run export:csv                     # everything
+npm run export:csv -- --since 2024-01-01
+```
+
+Writes `exports/YYYY-MM-DD-runs-overview.csv` and `exports/YYYY-MM-DD-run-laps.csv`
+(`exports/` is git-ignored). Share these with Claude for the workout review.
+
+### Optional: let Claude query Supabase directly
+
+The official Supabase MCP server can be added in **read-only** mode, scoped to this project:
+
+```sh
+claude mcp add --transport http supabase \
+  "https://mcp.supabase.com/mcp?project_ref=<project-ref>&read_only=true"
+```
+
+(In the Claude app, add the same URL as a custom connector.) `<project-ref>` is the Project ID in
+Supabase project settings. Note that the read-only connection can likely read every table,
+including `strava_tokens`; it cannot change anything. Strava's API terms forbid using the data to
+*train* AI models; asking Claude to analyze your own runs is not training.
 
 ## Security notes
 

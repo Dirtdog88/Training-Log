@@ -154,6 +154,28 @@ left join public.activity_details d on d.activity_id = a.id
 left join public.activity_streams s on s.activity_id = a.id
 where a.deleted_at is null;
 
+-- One row per lap (watch laps, not auto-splits): the easiest way to spot interval sessions.
+create view public.run_laps
+with (security_invoker = true) as
+select
+  a.id                                                      as activity_id,
+  a.start_date_local::date                                  as run_date,
+  a.name                                                    as run_name,
+  (lap ->> 'lap_index')::int                                as lap_index,
+  round(((lap ->> 'distance')::numeric / 1000), 3)          as distance_km,
+  (lap ->> 'moving_time')::int                              as moving_s,
+  (lap ->> 'elapsed_time')::int                             as elapsed_s,
+  case when (lap ->> 'distance')::numeric > 0 then
+    to_char(make_interval(secs => round((lap ->> 'moving_time')::numeric
+      / ((lap ->> 'distance')::numeric / 1000))), 'MI:SS')
+  end                                                       as pace_per_km,
+  round((lap ->> 'average_heartrate')::numeric)             as avg_hr,
+  round((lap ->> 'max_heartrate')::numeric)                 as max_hr
+from public.activities a
+join public.activity_details d on d.activity_id = a.id
+cross join lateral jsonb_array_elements(coalesce(d.laps, '[]'::jsonb)) as lap
+where a.deleted_at is null;
+
 -- ---------------------------------------------------------------------------
 -- Lock everything down to the service role
 -- ---------------------------------------------------------------------------
@@ -167,5 +189,5 @@ alter table public.sync_runs        enable row level security;
 
 revoke all on
   public.strava_tokens, public.athlete_zones, public.activities, public.activity_details,
-  public.activity_streams, public.sync_state, public.sync_runs, public.runs_overview
+  public.activity_streams, public.sync_state, public.sync_runs, public.runs_overview, public.run_laps
 from anon, authenticated;
